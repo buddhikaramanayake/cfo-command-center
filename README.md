@@ -18,6 +18,11 @@ A live, driver-based finance model for **Kestrel Ridge Outfitters**, a fictional
 
 Everything runs in the browser as plain JavaScript in a single `index.html`, with no server and no live AI calls. Every figure is calculated from nine drivers plus an opening balance sheet.
 
-`CFO_Command_Center_Explained.pptx` is a 14-slide walkthrough with speaker notes.
+## Explainer deck
+
+A 14-slide walkthrough of how the model works:
+
+- [View the slides (PDF)](CFO_Command_Center_Explained.pdf), which opens right on GitHub
+- [Download the PowerPoint](CFO_Command_Center_Explained.pptx), which includes speaker notes
 
 Built with Claude as an AI-in-finance demo.
