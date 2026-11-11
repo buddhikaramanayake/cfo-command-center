@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kestrel Ridge CFO Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky driver rail on the left, command surface on the right; summary (badge, KPIs, briefing) before detail (charts, statements, checks). */
+:root{
+  --bg:#EEF1F4; --surface:#FFFFFF; --surface-2:#F6F8FA; --ink:#0E1A2B; --muted:#5A6676; --line:#DCE1E7;
+  --accent:#0B6E69; --accent-soft:#D5ECEA; --budget:#A3AEBB; --pos:#1B7F47; --neg:#BF3B26; --warn:#A86A0F;
+  --pos-soft:#DDF1E5; --neg-soft:#F8E0DB; --warn-soft:#F6EBD5; --fan:rgba(11,110,105,.16);
+  --f-display:"Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-num:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0B1118; --surface:#121B25; --surface-2:#18232F; --ink:#E5EBF1; --muted:#8E9AA9; --line:#243142;
+  --accent:#41B9AF; --accent-soft:#163A39; --budget:#5A6879; --pos:#4CC283; --neg:#F17860; --warn:#E3AA4C;
+  --pos-soft:#143323; --neg-soft:#3A1D18; --warn-soft:#3A2C13; --fan:rgba(65,185,175,.18); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0B1118; --surface:#121B25; --surface-2:#18232F; --ink:#E5EBF1; --muted:#8E9AA9; --line:#243142;
+  --accent:#41B9AF; --accent-soft:#163A39; --budget:#5A6879; --pos:#4CC283; --neg:#F17860; --warn:#E3AA4C;
+  --pos-soft:#143323; --neg-soft:#3A1D18; --warn-soft:#3A2C13; --fan:rgba(65,185,175,.18); color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 40px}
+.wrap{max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.mark{width:40px;height:40px;border-radius:9px;background:var(--ink);display:grid;place-items:center;flex:none}
+.mark svg{width:24px;height:24px}
+.brand h1{font-size:22px;font-weight:800}
+.brand p{margin:0;color:var(--muted);font-size:12.5px}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:99px;background:var(--warn-soft);color:var(--warn);font-weight:600;margin-left:6px;vertical-align:1px}
+.badge{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 14px 8px 10px;text-align:left}
+.badge .dots{display:grid;grid-template-columns:repeat(3,9px);gap:3px}
+.badge .dots i{width:9px;height:9px;border-radius:50%;background:var(--pos)}
+.badge .dots i.f{background:var(--neg)}
+.badge b{font-family:var(--f-display);font-size:15px;display:block;line-height:1.1}
+.badge small{color:var(--muted);font-size:11.5px}
+.badge.ok{border-color:color-mix(in srgb, var(--pos) 45%, var(--line))}
+.badge.bad{border-color:var(--neg);background:var(--neg-soft)}
+
+.grid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
+
+/* rail */
+.rail{position:sticky;top:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:980px){.rail{position:static;order:2}}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;border-radius:6px;padding:6px 2px;font-size:12px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.group{display:flex;flex-direction:column;gap:10px}
+.group h3{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-family:var(--f-body);font-weight:600}
+.sl label{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px}
+.sl label span:first-child{font-weight:500}
+.sl .v{font-family:var(--f-num);font-size:12.5px;font-weight:600}
+.sl .b{font-size:11px;color:var(--muted);font-family:var(--f-num)}
+.sl input{width:100%;accent-color:var(--accent);margin:4px 0 0}
+.tamper{border:1px dashed var(--line);border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--muted)}
+.tamper input{accent-color:var(--neg);margin-top:3px}
+.tamper b{color:var(--ink);font-weight:600}
+
+/* main */
+.main{display:flex;flex-direction:column;gap:18px;min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+@media (max-width:1250px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:560px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.kpi .val{font-family:var(--f-display);font-size:24px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.kpi .sub{font-size:12px;color:var(--muted);font-family:var(--f-num)}
+.chip{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:99px;font-family:var(--f-num)}
+.chip.pos{background:var(--pos-soft);color:var(--pos)} .chip.neg{background:var(--neg-soft);color:var(--neg)} .chip.warn{background:var(--warn-soft);color:var(--warn)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;min-width:0}
+.card-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.card-h h2{font-size:16px;font-weight:700}
+.card-h .note{font-size:12px;color:var(--muted)}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+@media (max-width:1100px){.two{grid-template-columns:minmax(0,1fr)}}
+.brief{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:22px}
+@media (max-width:900px){.brief{grid-template-columns:minmax(0,1fr)}}
+.brief p{margin:0 0 10px;max-width:72ch;font-size:14px}
+.brief p strong{font-weight:600}
+.brief .alert{background:var(--neg-soft);color:var(--neg);border-radius:8px;padding:8px 12px;font-weight:600;font-size:13px;margin-bottom:10px}
+.actions{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;counter-reset:a}
+.actions li{display:grid;grid-template-columns:22px 1fr;gap:8px;font-size:13px;background:var(--surface-2);border-radius:8px;padding:8px 10px}
+.actions li::before{counter-increment:a;content:counter(a);font-family:var(--f-num);font-weight:600;color:var(--accent)}
+.stamp{font-size:11.5px;color:var(--muted);font-family:var(--f-num)}
+svg.chart{width:100%;height:auto;display:block;overflow:visible}
+svg.chart text{fill:var(--muted);font-family:var(--f-num);font-size:11px}
+svg.chart .lbl{fill:var(--ink);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:12px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.mcstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+@media (max-width:640px){.mcstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.mcstats div{background:var(--surface-2);border-radius:9px;padding:9px 11px}
+.mcstats b{display:block;font-family:var(--f-display);font-size:19px}
+.mcstats span{font-size:11.5px;color:var(--muted)}
+.ghost{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600}
+
+/* tables */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:8px;flex-wrap:wrap}
+.tabs button{border:0;background:none;padding:8px 12px;font-weight:600;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--ink);border-color:var(--accent)}
+.tscroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:5px 8px;text-align:right;white-space:nowrap;font-family:var(--f-num);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left;font-family:var(--f-body);position:sticky;left:0;background:var(--surface)}
+thead th{color:var(--muted);font-weight:600;font-size:11.5px;border-bottom:1px solid var(--line)}
+tr.tot td{font-weight:600;border-top:1px solid var(--line)}
+tr.key td{font-weight:700;background:var(--surface-2)} tr.key td:first-child{background:var(--surface-2)}
+tr.pct td{color:var(--muted);font-style:italic}
+tr.chk td{color:var(--muted);font-size:11.5px}
+td.fy,th.fy{border-left:1px solid var(--line)}
+td.neg{color:var(--neg)} td.under{background:var(--neg-soft);color:var(--neg);font-weight:600}
+td.typed{background:var(--warn-soft);color:var(--warn);font-weight:700}
+.checks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:900px){.checks{grid-template-columns:minmax(0,1fr)}}
+.ck{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;grid-template-columns:22px 1fr;gap:8px}
+.ck .ic{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--surface)}
+.ck.p .ic{background:var(--pos)} .ck.f{border-color:var(--neg);background:var(--neg-soft)} .ck.f .ic{background:var(--neg)}
+.ck b{font-size:13px;display:block} .ck span{font-size:12px;color:var(--muted);display:block}
+.ck code{font-family:var(--f-num);font-size:11.5px}
+.foot{font-size:12px;color:var(--muted);max-width:90ch}
+@media (prefers-reduced-motion: no-preference){ .kpi .val,.mcstats b{transition:color .2s} }
+</style>
+</head><body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 19 L9 8 L13 14 L16 10 L22 19 Z" fill="#41B9AF"/><path d="M9 8 L11 11 L7.5 11 Z" fill="#E5EBF1"/></svg></div>
+      <div>
+        <h1>Kestrel Ridge Outfitters <span class="tag">Fictional · simulated data</span></h1>
+        <p>CFO Command Center · FY2027 Budget vs Latest Estimate (LE) · $000s unless noted</p>
+      </div>
+    </div>
+    <button class="badge" id="badge" type="button" aria-label="Model integrity checks">
+      <span class="dots" id="dots"></span>
+      <span><b id="badgeTitle">Integrity 6/6</b><small id="badgeSub">All statements reconcile</small></span>
+    </button>
+  </header>
+
+  <div class="grid">
+    <aside class="rail" aria-label="Scenario drivers">
+      <div class="group">
+        <h3>Scenario</h3>
+        <div class="seg" id="presets">
+          <button type="button" data-p="budget">Budget</button>
+          <button type="button" data-p="le" class="on">LE</button>
+          <button type="button" data-p="downside">Down</button>
+          <button type="button" data-p="upside">Up</button>
+        </div>
+      </div>
+      <div class="group" id="g-commercial"><h3>Commercial</h3></div>
+      <div class="group" id="g-cost"><h3>Cost</h3></div>
+      <div class="group" id="g-wc"><h3>Working capital</h3></div>
+      <div class="group" id="g-cap"><h3>Capital &amp; funding</h3></div>
+      <label class="tamper" for="tamper"><input type="checkbox" id="tamper">
+        <span><b>Type over a cell.</b> Hard-codes June receivables +$250k without flowing it through the model. Watch the integrity badge catch it.</span></label>
+    </aside>
+
+    <main class="main">
+      <section class="kpis" id="kpis" aria-label="Key metrics"></section>
+
+      <section class="card" aria-labelledby="h-brief">
+        <div class="card-h"><h2 id="h-brief">CFO briefing</h2><span class="stamp" id="stamp"></span></div>
+        <div class="brief">
+          <div id="briefText"></div>
+          <div><div class="eyebrow" style="margin-bottom:8px">Recommended actions</div><ol class="actions" id="actions"></ol></div>
+        </div>
+      </section>
+
+      <div class="two">
+        <section class="card" aria-labelledby="h-bridge">
+          <div class="card-h"><h2 id="h-bridge">EBITDA bridge: budget to LE</h2><span class="note">FY2027, $000s</span></div>
+          <div id="bridgeChart"></div>
+        </section>
+        <section class="card" aria-labelledby="h-monthly">
+          <div class="card-h"><h2 id="h-monthly">Monthly EBITDA</h2><span class="note">$000s</span></div>
+          <div id="monthlyChart"></div>
+          <div class="legend"><span><i style="background:var(--budget)"></i>Budget</span><span><i style="background:var(--accent)"></i>Latest estimate</span></div>
+        </section>
+      </div>
+
+      <section class="card" aria-labelledby="h-cash">
+        <div class="card-h"><h2 id="h-cash">13-week cash forecast</h2>
+          <span class="note">Direct method, weeks ending Jan 8 to Mar 31 · <button class="ghost" id="rerun" type="button">Re-run 1,000 simulations</button></span></div>
+        <div class="two">
+          <div>
+            <div id="cashChart"></div>
+            <div class="legend">
+              <span><i style="background:var(--accent)"></i>LE closing cash</span>
+              <span><i style="background:var(--fan)"></i>Monte Carlo P10–P90</span>
+              <span><i style="background:var(--neg)"></i>$6.0M minimum cash</span>
+              <span><i style="background:var(--budget)"></i>$7.5M month-end target</span>
+            </div>
+          </div>
+          <div>
+            <div id="histChart"></div>
+            <div class="legend"><span>Lowest weekly cash in each of 1,000 runs</span></div>
+          </div>
+        </div>
+        <div class="mcstats" id="mcstats"></div>
+        <div class="tscroll" style="margin-top:14px"><table id="weekTable"></table></div>
+      </section>
+
+      <section class="card" aria-labelledby="h-fs">
+        <div class="card-h"><h2 id="h-fs">Financial statements</h2><span class="note">LE, monthly, $000s</span></div>
+        <div class="tabs" role="tablist" id="fsTabs">
+          <button type="button" class="on" data-t="pl">Income statement</button>
+          <button type="button" data-t="bs">Balance sheet</button>
+          <button type="button" data-t="cf">Cash flow</button>
+        </div>
+        <div class="tscroll"><table id="fsTable"></table></div>
+      </section>
+
+      <section class="card" id="integrity" aria-labelledby="h-int">
+        <div class="card-h"><h2 id="h-int">Integrity checks</h2><span class="note">Recomputed on every change · tolerance $500</span></div>
+        <div class="checks" id="checks"></div>
+      </section>
+
+      <p class="foot">Kestrel Ridge Outfitters is a fictional US outdoor-gear distributor. Every figure on this page is calculated in your browser from nine drivers and an opening balance sheet: no number in the statements is typed in. Revolver policy sweeps cash to a $7.5M month-end target; draws settle in week 2 of the month. Monte Carlo perturbs volume, price, margin, opex and working-capital days, plus monthly demand noise. Built with Claude as an AI-in-finance demo.</p>
+    </main>
+  </div>
+</div>
+<script>
+// ===== Driver-based 3-statement model ($000s) =====
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const SEASON = [0.74,0.78,0.92,1.02,1.12,1.18,1.15,1.10,1.00,0.98,1.06,0.95];
+const B = { annualRev:124000, gm:0.42, fixedOpex:2700, varOpex:0.06, payrollShare:0.55,
+  capex:450, rate:0.0725, revSpread:0.01, termAmort:250, divQ:600, tax:0.25,
+  minCash:6000, targetCash:7500, revCap:15000, ppeLifeM:84, covenant:3.0 };
+const OPEN = { cash:9200, ar:15200, inv:11600, ppe:28000, ap:7700, rev:2000, term:30000, cs:12000 };
+OPEN.re = OPEN.cash + OPEN.ar + OPEN.inv + OPEN.ppe - OPEN.ap - OPEN.rev - OPEN.term - OPEN.cs; // opening equity from audited close
+const PRESETS = {
+  budget:   {vol:0,   price:0,   gmPts:0,    opex:0, dso:45, dio:75, dpo:40, capexPct:100, rateBps:0},
+  le:       {vol:-3,  price:1.5, gmPts:-0.8, opex:2, dso:49, dio:82, dpo:38, capexPct:100, rateBps:50},
+  downside: {vol:-10, price:0,   gmPts:-2,   opex:3, dso:55, dio:90, dpo:35, capexPct:100, rateBps:150},
+  upside:   {vol:5,   price:2.5, gmPts:0.5,  opex:0, dso:44, dio:72, dpo:42, capexPct:110, rateBps:0}
+};
+// 13 weeks: Jan W1-4, Feb W5-8, Mar W9-13
+const WEEK_END = ['Jan 8','Jan 15','Jan 22','Jan 29','Feb 5','Feb 12','Feb 19','Feb 26','Mar 5','Mar 12','Mar 19','Mar 26','Mar 31'];
+const WEEK_MONTH = [0,0,0,0,1,1,1,1,2,2,2,2,2];
+const PAT = {
+  receipts: {4:[0.22,0.24,0.25,0.29], 5:[0.17,0.19,0.20,0.20,0.24]},
+  supplier: {4:[0.30,0.20,0.30,0.20], 5:[0.24,0.18,0.24,0.18,0.16]},
+  other:    {4:[0.40,0.20,0.20,0.20], 5:[0.36,0.16,0.16,0.16,0.16]},
+  even:     {4:[0.25,0.25,0.25,0.25], 5:[0.2,0.2,0.2,0.2,0.2]}
+};
+const sum = a => a.reduce((s,x)=>s+x,0);
+
+function runModel(d, noise){
+  const rate = B.rate + d.rateBps/10000;
+  const gm = B.gm + d.gmPts/100;
+  const pf = 1 + d.price/100;
+  const vf = m => (1 + d.vol/100) * (noise ? noise[m] : 1);
+  const baseRev = SEASON.map(s => B.annualRev/12*s);
+  const rev = baseRev.map((b,m) => b*vf(m)*pf);
+  const cogs = rev.map(r => r*(1-gm));
+  const cogsNext = m => m < 11 ? cogs[m+1] : baseRev[0]*vf(11)*pf*(1-gm);
+  const opex = rev.map(r => (B.fixedOpex + B.varOpex*r)*(1+d.opex/100));
+  const keys = ['rev','cogs','gp','opex','payroll','otherOpex','ebitda','da','ebit','interest','ebt','tax','ni',
+    'cash','ar','inv','ppe','ap','revolver','term','cs','re',
+    'dAR','dInv','dAP','cfo','capex','cfi','termPay','revFlow','div','cff','net','cashOpen','cashClose',
+    'receipts','supplierPay','cfoDirect'];
+  const R = {}; keys.forEach(k => R[k] = new Array(12).fill(0));
+  let o = {...OPEN};
+  for (let m=0; m<12; m++){
+    const da = o.ppe/B.ppeLifeM;
+    const capex = B.capex*d.capexPct/100;
+    const interest = (o.term*rate + o.rev*(rate+B.revSpread))/12;
+    const gp = rev[m]-cogs[m];
+    const ebitda = gp - opex[m];
+    const ebit = ebitda - da;
+    const ebt = ebit - interest;
+    const tax = Math.max(0, ebt*B.tax);
+    const ni = ebt - tax;
+    const ar = rev[m]*d.dso/30, inv = cogsNext(m)*d.dio/30, ap = cogs[m]*d.dpo/30;
+    const dAR = ar-o.ar, dInv = inv-o.inv, dAP = ap-o.ap;
+    const cfo = ni + da - dAR - dInv + dAP;
+    const termPay = Math.min(B.termAmort, o.term);
+    const div = (m%3===2) ? B.divQ : 0;
+    const pre = o.cash + cfo - capex - termPay - div;
+    let revFlow;
+    if (pre < B.targetCash) revFlow = Math.min(B.targetCash-pre, B.revCap-o.rev);
+    else revFlow = -Math.min(o.rev, pre-B.targetCash);
+    const cff = -termPay + revFlow - div;
+    const net = cfo - capex + cff;
+    const receipts = rev[m]-dAR, supplierPay = cogs[m]+dInv-dAP;
+    const payroll = opex[m]*B.payrollShare, otherOpex = opex[m]-payroll;
+    const n = {cash:o.cash+net, ar, inv, ppe:o.ppe+capex-da, ap, rev:o.rev+revFlow, term:o.term-termPay, cs:o.cs, re:o.re+ni-div};
+    Object.assign(R, {});
+    const row = {rev:rev[m],cogs:cogs[m],gp,opex:opex[m],payroll,otherOpex,ebitda,da,ebit,interest,ebt,tax,ni,
+      cash:n.cash,ar,inv,ppe:n.ppe,ap,revolver:n.rev,term:n.term,cs:n.cs,re:n.re,
+      dAR,dInv,dAP,cfo,capex,cfi:-capex,termPay,revFlow,div,cff,net,cashOpen:o.cash,cashClose:o.cash+net,
+      receipts,supplierPay,cfoDirect:receipts-supplierPay-payroll-otherOpex-tax-interest};
+    for (const k of keys) R[k][m] = row[k];
+    o = n;
+  }
+  R.weeks = buildWeeks(R);
+  R.drivers = d; R.gm = gm; R.rate = rate; R.baseRev = baseRev;
+  return R;
+}
+
+function buildWeeks(R){
+  const W = [];
+  let cash = OPEN.cash, payWk = 0;
+  for (let m=0; m<3; m++){
+    const idx = WEEK_MONTH.map((x,i)=>x===m?i:-1).filter(i=>i>=0);
+    const n = idx.length;
+    const payrollWeeks = idx.filter(i => (i+1)%2===0);
+    idx.forEach((wi,j) => {
+      const w = {label:'W'+(wi+1), end:WEEK_END[wi], month:m};
+      w.receipts = R.receipts[m]*PAT.receipts[n][j];
+      w.supplier = -R.supplierPay[m]*PAT.supplier[n][j];
+      w.payroll  = payrollWeeks.includes(wi) ? -R.payroll[m]/payrollWeeks.length : 0;
+      w.other    = -R.otherOpex[m]*PAT.other[n][j];
+      w.debt     = j===0 ? -(R.interest[m]+R.termPay[m]) : 0;
+      w.tax      = j===n-1 ? -R.tax[m] : 0;
+      w.capex    = -R.capex[m]*PAT.even[n][j];
+      w.revolver = R.revFlow[m] > 0 ? (j===1 ? R.revFlow[m] : 0) : (j===n-1 ? R.revFlow[m] : 0); // draws settle in week 2, sweeps at month end
+      w.div      = j===n-1 ? -R.div[m] : 0;
+      w.open = cash;
+      w.net = w.receipts+w.supplier+w.payroll+w.other+w.debt+w.tax+w.capex+w.revolver+w.div;
+      cash += w.net; w.close = cash;
+      W[wi] = w;
+    });
+  }
+  return W;
+}
+
+function bridge(Bd, L){
+  const d = L.drivers, gmB = B.gm;
+  const baseAnn = sum(L.baseRev);
+  const volF = sum(L.baseRev.map((b,m)=>b*(L.rev[m]/(b*(1+d.price/100)))))/baseAnn; // effective volume factor incl. noise
+  const volume = baseAnn*(volF-1)*gmB;
+  const price = baseAnn*volF*(d.price/100)*gmB;
+  const margin = sum(L.rev)*(L.gm-gmB);
+  const opex = -(sum(L.opex)-sum(Bd.opex));
+  return {start:sum(Bd.ebitda), volume, price, margin, opex, end:sum(L.ebitda)};
+}
+
+function checks(R, br){
+  const abs = Math.abs; let c1=0,c2=0,c3=0,c4=0,c5,c6=0;
+  for (let m=0;m<12;m++){
+    const A = R.cash[m]+R.ar[m]+R.inv[m]+R.ppe[m];
+    const LE = R.ap[m]+R.revolver[m]+R.term[m]+R.cs[m]+R.re[m];
+    c1 = Math.max(c1, abs(A-LE));
+    const prevCash = m ? R.cash[m-1] : OPEN.cash;
+    c2 = Math.max(c2, abs(R.cashClose[m]-R.cash[m]), abs(R.cashOpen[m]-prevCash));
+    const prevRE = m ? R.re[m-1] : OPEN.re;
+    c3 = Math.max(c3, abs(R.re[m]-(prevRE+R.ni[m]-R.div[m])));
+    c4 = Math.max(c4, abs(R.cfoDirect[m]-R.cfo[m]));
+  }
+  c5 = abs(br.start+br.volume+br.price+br.margin+br.opex-br.end);
+  const W = R.weeks;
+  [[3,0],[7,1],[12,2]].forEach(([w,m]) => c6 = Math.max(c6, abs(W[w].close-R.cash[m])));
+  W.forEach((w,i)=>{ const prev = i? W[i-1].close : OPEN.cash; c6 = Math.max(c6, abs(w.open-prev)); });
+  const tol = 0.5;
+  return [
+    {name:'Balance sheet balances', detail:'Assets = Liabilities + Equity, all 12 month-ends', diff:c1},
+    {name:'Cash ties to balance sheet', detail:'Cash flow closing cash = balance sheet cash; each month opens at prior close', diff:c2},
+    {name:'Retained earnings roll forward', detail:'Opening RE + net income − dividends = closing RE', diff:c3},
+    {name:'Direct = indirect cash flow', detail:'Receipts − payments = NI + D&A − ΔWorking capital', diff:c4},
+    {name:'EBITDA bridge reconciles', detail:'Budget EBITDA + volume + price + margin + opex = LE EBITDA', diff:c5},
+    {name:'13-week forecast ties out', detail:'Weeks 4, 8 and 13 close at Jan, Feb and Mar balance sheet cash', diff:c6}
+  ].map(x => ({...x, pass: x.diff < tol}));
+}
+
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function monteCarlo(d, n, seed){
+  const rnd = mulberry32(seed);
+  const N = () => { let u=0,v=0; while(!u)u=rnd(); while(!v)v=rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
+  const paths = [], mins = [], ebitdas = [], capHit = [], liq = [];
+  for (let i=0;i<n;i++){
+    const dd = {...d, vol:d.vol+N()*4, price:d.price+N()*1, gmPts:d.gmPts+N()*0.8, opex:d.opex+N()*2,
+      dso:Math.max(15,d.dso+N()*4), dio:Math.max(20,d.dio+N()*6), dpo:Math.max(10,d.dpo+N()*3)};
+    const noise = Array.from({length:12},()=>1+N()*0.03);
+    const R = runModel(dd, noise);
+    const p = R.weeks.map(w=>w.close);
+    paths.push(p); mins.push(Math.min(...p)); ebitdas.push(sum(R.ebitda));
+    capHit.push(Math.max(...R.revolver) >= B.revCap-0.5);
+    liq.push(Math.min(...R.cash.map((c,m)=>c+B.revCap-R.revolver[m])));
+  }
+  const pct = (arr,q) => { const s=[...arr].sort((a,b)=>a-b); return s[Math.min(s.length-1,Math.floor(q*s.length))]; };
+  const band = [...Array(13).keys()].map(w => { const col = paths.map(p=>p[w]); return {p10:pct(col,.1),p50:pct(col,.5),p90:pct(col,.9)}; });
+  return { band, mins, breach: mins.filter(x=>x<B.minCash).length/n, capHit: capHit.filter(Boolean).length/n,
+    ebitdaP10:pct(ebitdas,.1), ebitdaP90:pct(ebitdas,.9), minP10:pct(mins,.1), minP50:pct(mins,.5), minP90:pct(mins,.9), liqP10:pct(liq,.1), liqP50:pct(liq,.5) };
+}
+// ===== UI =====
+const SLIDERS = [
+  {g:'g-commercial', k:'vol', label:'Volume vs plan', min:-20, max:20, step:0.5, fmt:v=>sgn(v,1)+'%'},
+  {g:'g-commercial', k:'price', label:'Price vs plan', min:-5, max:8, step:0.25, fmt:v=>sgn(v,2)+'%'},
+  {g:'g-commercial', k:'gmPts', label:'Gross margin vs 42.0%', min:-5, max:3, step:0.1, fmt:v=>sgn(v,1)+' pts'},
+  {g:'g-cost', k:'opex', label:'Opex vs plan', min:-15, max:15, step:0.5, fmt:v=>sgn(v,1)+'%'},
+  {g:'g-wc', k:'dso', label:'DSO (receivable days)', min:30, max:75, step:1, fmt:v=>v+' d'},
+  {g:'g-wc', k:'dio', label:'DIO (inventory days)', min:45, max:120, step:1, fmt:v=>v+' d'},
+  {g:'g-wc', k:'dpo', label:'DPO (payable days)', min:20, max:70, step:1, fmt:v=>v+' d'},
+  {g:'g-cap', k:'capexPct', label:'Capex vs plan', min:0, max:150, step:5, fmt:v=>v+'%'},
+  {g:'g-cap', k:'rateBps', label:'Interest rate shift', min:-200, max:300, step:25, fmt:v=>sgn(v,0)+' bps'}
+];
+function sgn(v,dp){ const s=Number(v).toFixed(dp); return v>0?'+'+s:s; }
+const fmtK = v => { const r=Math.round(v); if (Object.is(r,-0)||r===0) return '–'; const s=Math.abs(r).toLocaleString('en-US'); return r<0?'('+s+')':s; };
+const fmtM = (v,dp=1) => (v<0?'−':'')+'$'+(Math.abs(v)/1000).toFixed(dp)+'M';
+const fmtSM = v => (v>=0?'+':'−')+'$'+(Math.abs(v)/1000).toFixed(1)+'M';
+const pctS = v => (v*100).toFixed(0)+'%';
+const $ = id => document.getElementById(id);
+
+let D = {...PRESETS.le}, seed = 20270101, tab = 'pl', state = {};
+const BUD = runModel(PRESETS.budget);
+
+// build sliders
+SLIDERS.forEach(s => {
+  const w = document.createElement('div'); w.className='sl';
+  w.innerHTML = `<label for="s-${s.k}"><span>${s.label}</span><span class="v" id="v-${s.k}"></span></label>
+    <input type="range" id="s-${s.k}" min="${s.min}" max="${s.max}" step="${s.step}">
+    <div class="b">Budget ${s.fmt(PRESETS.budget[s.k])}</div>`;
+  $(s.g).appendChild(w);
+  w.querySelector('input').addEventListener('input', e => { D[s.k]=+e.target.value; setPresetUI(null); schedule(); });
+});
+function syncSliders(){ SLIDERS.forEach(s => { $('s-'+s.k).value = D[s.k]; $('v-'+s.k).textContent = s.fmt(D[s.k]); }); }
+function setPresetUI(p){ document.querySelectorAll('#presets button').forEach(b => b.classList.toggle('on', b.dataset.p===p)); }
+document.querySelectorAll('#presets button').forEach(b => b.addEventListener('click', () => { D={...PRESETS[b.dataset.p]}; setPresetUI(b.dataset.p); schedule(); }));
+$('tamper').addEventListener('change', schedule);
+$('rerun').addEventListener('click', () => { seed = (seed*1103515245+12345) % 2147483647; schedule(); });
+$('badge').addEventListener('click', () => $('integrity').scrollIntoView({behavior:'smooth', block:'start'}));
+document.querySelectorAll('#fsTabs button').forEach(b => b.addEventListener('click', () => {
+  tab = b.dataset.t; document.querySelectorAll('#fsTabs button').forEach(x=>x.classList.toggle('on', x===b)); renderFS();
+}));
+
+let raf = 0;
+function schedule(){ syncSliders(); if (!raf) raf = requestAnimationFrame(() => { raf=0; compute(); }); }
+
+function compute(){
+  const L = runModel(D);
+  const tampered = $('tamper').checked;
+  if (tampered) L.ar[5] += 250; // a typed-over cell: not flowed through cash flow or equity
+  const br = bridge(BUD, L);
+  const ck = checks(L, br);
+  const mc = monteCarlo(D, 1000, seed);
+  state = {L, br, ck, mc, tampered};
+  renderBadge(); renderKPIs(); renderBrief(); renderBridge(); renderMonthly(); renderCash(); renderHist(); renderMC(); renderWeeks(); renderFS(); renderChecks();
+}
+
+// ---------- derived metrics ----------
+function metrics(){
+  const {L, mc} = state;
+  const rev = sum(L.rev), ebitda = sum(L.ebitda), bRev = sum(BUD.rev), bE = sum(BUD.ebitda);
+  const fcf = sum(L.cfo) - sum(L.capex), bFcf = sum(BUD.cfo) - sum(BUD.capex);
+  const netDebt = L.term[11] + L.revolver[11] - L.cash[11];
+  const lev = ebitda > 0 ? netDebt/ebitda : Infinity;
+  const wk = L.weeks; let ti = 0; wk.forEach((w,i)=>{ if (w.close < wk[ti].close) ti = i; });
+  const peakRev = Math.max(...L.revolver), peakM = L.revolver.indexOf(peakRev);
+  const ccc = D.dso + D.dio - D.dpo, bccc = PRESETS.budget.dso + PRESETS.budget.dio - PRESETS.budget.dpo;
+  const nwc = R => R.ar[11] + R.inv[11] - R.ap[11];
+  const belowMonths = L.cash.map((c,m)=>c < B.minCash-0.5 ? m : -1).filter(m=>m>=0);
+  return {rev, ebitda, bRev, bE, fcf, bFcf, netDebt, lev, trough:wk[ti], ti, peakRev, peakM, ccc, bccc,
+    nwcDelta: nwc(L)-nwc(BUD), margin: ebitda/rev, bMargin: bE/bRev, belowMonths, mc};
+}
+
+// ---------- badge & checks ----------
+function renderBadge(){
+  const ck = state.ck, n = ck.filter(c=>c.pass).length;
+  $('dots').innerHTML = ck.map(c => `<i class="${c.pass?'':'f'}"></i>`).join('');
+  $('badgeTitle').textContent = `Integrity ${n}/6`;
+  const fail = ck.find(c=>!c.pass);
+  $('badgeSub').textContent = fail ? `Failing: ${fail.name.toLowerCase()}` : 'All statements reconcile';
+  $('badge').className = 'badge ' + (n===6 ? 'ok' : 'bad');
+}
+function renderChecks(){
+  $('checks').innerHTML = state.ck.map(c => `<div class="ck ${c.pass?'p':'f'}"><span class="ic">${c.pass?'✓':'!'}</span>
+    <div><b>${c.name}</b><span>${c.detail}</span><span>Largest difference: <code>$${c.diff<0.01?'0.00':(c.diff*1000).toLocaleString('en-US',{maximumFractionDigits:0})}</code></span></div></div>`).join('');
+}
+
+// ---------- KPIs ----------
+function chip(delta, goodUp=true, txt){ const good = goodUp ? delta>=0 : delta<=0; return `<span class="chip ${good?'pos':'neg'}">${txt}</span>`; }
+function renderKPIs(){
+  const k = metrics();
+  const tiles = [
+    {l:'Revenue', v:fmtM(k.rev), s:chip(k.rev-k.bRev,true,fmtSM(k.rev-k.bRev))+' vs budget'},
+    {l:'EBITDA', v:fmtM(k.ebitda), s:chip(k.ebitda-k.bE,true,fmtSM(k.ebitda-k.bE))+' vs budget'},
+    {l:'EBITDA margin', v:(k.margin*100).toFixed(1)+'%', s:chip(k.margin-k.bMargin,true,sgn((k.margin-k.bMargin)*100,1)+' pts')+' vs budget'},
+    {l:'Free cash flow', v:fmtM(k.fcf), s:chip(k.fcf-k.bFcf,true,fmtSM(k.fcf-k.bFcf))+' vs budget'},
+    {l:'Net leverage, Dec', v:isFinite(k.lev)?k.lev.toFixed(2)+'x':'n/m', s:`<span class="chip ${k.lev>B.covenant?'neg':k.lev>2.75?'warn':'pos'}">${k.lev>B.covenant?'breach':k.lev>2.75?'tight':'ok'}</span> covenant ${B.covenant.toFixed(1)}x`},
+    {l:'13-week cash low', v:fmtM(k.trough.close,2), s:`<span class="chip ${k.trough.close<B.minCash?'neg':'pos'}">${k.trough.label}</span> min $6.0M`}
+  ];
+  $('kpis').innerHTML = tiles.map(t => `<div class="kpi"><span class="eyebrow">${t.l}</span><span class="val">${t.v}</span><span class="sub">${t.s}</span></div>`).join('');
+}
+
+// ---------- briefing ----------
+function renderBrief(){
+  const k = metrics(), br = state.br, mc = k.mc;
+  const drivers = [['volume',br.volume],['price',br.price],['gross margin',br.margin],['opex',br.opex]];
+  const neg = drivers.filter(d=>d[1]<-1).sort((a,b)=>a[1]-b[1]), pos = drivers.filter(d=>d[1]>1).sort((a,b)=>b[1]-a[1]);
+  const gap = k.ebitda - k.bE, gapPct = gap/k.bE;
+  let p1;
+  if (Math.abs(gap) < 50) p1 = `<strong>EBITDA is tracking to ${fmtM(k.ebitda)}, in line with budget.</strong>`;
+  else p1 = `<strong>EBITDA is tracking to ${fmtM(k.ebitda)}, ${fmtM(Math.abs(gap))} (${Math.abs(gapPct*100).toFixed(0)}%) ${gap<0?'below':'above'} the ${fmtM(k.bE)} budget.</strong> `;
+  if (Math.abs(gap) >= 50){
+    const lead = gap<0 ? neg[0] : pos[0], off = gap<0 ? pos[0] : neg[0];
+    if (lead) p1 += `${cap(lead[0])} is the largest ${gap<0?'drag':'contributor'} at ${fmtSM(lead[1])}`;
+    if (off) p1 += `, partly offset by ${off[0]} at ${fmtSM(off[1])}`;
+    p1 += `. Margin lands at ${(k.margin*100).toFixed(1)}% against ${(k.bMargin*100).toFixed(1)}% planned.`;
+  }
+  const t = k.trough, below = t.close < B.minCash;
+  let p2 = `<strong>Liquidity:</strong> the 13-week low is ${fmtM(t.close,2)} in ${t.label} (week ending ${t.end}), ` +
+    (below ? `${fmtK((B.minCash-t.close))}k below the $6.0M minimum.` : `${fmtK(t.close-B.minCash)}k above the $6.0M minimum.`) +
+    ` The revolver peaks at ${fmtM(k.peakRev)} of ${fmtM(B.revCap)} in ${MONTHS[k.peakM]} (${pctS(k.peakRev/B.revCap)} drawn).` +
+    ` Across 1,000 simulations, weekly cash dips under the minimum in <strong>${pctS(mc.breach)}</strong> of runs and the revolver is fully drawn in ${pctS(mc.capHit)}.`;
+  if (k.belowMonths.length) p2 += ` With the facility exhausted, month-end cash falls below the minimum in ${k.belowMonths.map(m=>MONTHS[m]).join(', ')}.`;
+  const dayRev = k.rev/360;
+  const p3 = `<strong>Working capital:</strong> cash conversion cycle is ${k.ccc} days against ${k.bccc} planned, ` +
+    (Math.abs(k.nwcDelta)<50 ? `so year-end working capital is in line with plan.` : `which ${k.nwcDelta>0?'ties up':'releases'} ${fmtM(Math.abs(k.nwcDelta))} ${k.nwcDelta>0?'more':''} cash by December than budget.`) +
+    ` Each day of DSO is worth about ${fmtM(dayRev,2)} of cash.`;
+  const head = B.covenant>0 && k.ebitda>0 ? k.ebitda - k.netDebt/B.covenant : -1;
+  const p4 = `<strong>Leverage:</strong> December net debt of ${fmtM(k.netDebt)} is ${isFinite(k.lev)?k.lev.toFixed(2)+'x':'not meaningful against negative'} EBITDA` +
+    (isFinite(k.lev) ? (k.lev>B.covenant ? `, <strong>breaching</strong> the ${B.covenant.toFixed(1)}x covenant.` : `, leaving ${fmtM(head)} of EBITDA headroom to the ${B.covenant.toFixed(1)}x covenant.`) : '.');
+  $('briefText').innerHTML = (state.tampered || state.ck.some(c=>!c.pass) ? `<div class="alert">An integrity check is failing. Treat these numbers as unreliable until the model ties out.</div>` : '') +
+    [p1,p2,p3,p4].map(p=>`<p>${p}</p>`).join('');
+
+  const acts = [];
+  if (state.ck.some(c=>!c.pass)) acts.push(`Fix the failing check first: ${state.ck.find(c=>!c.pass).name.toLowerCase()}. A typed-over number is the usual cause.`);
+  if (below) { const mo = MONTHS[t.month]; acts.push(`Settle the ${mo} revolver draw in week 1 instead of week 2, or hold ${fmtM(B.minCash-t.close+250,2)} more at month-end, to keep ${t.label} above the minimum.`); }
+  if (k.belowMonths.length || mc.capHit > 0.25) acts.push(`Open talks on a revolver upsize or defer capex: the facility runs out in ${pctS(mc.capHit)} of simulations.`);
+  if (D.dso > PRESETS.budget.dso) acts.push(`Bring DSO back to ${PRESETS.budget.dso} days to free about ${fmtM(state.L.rev[11]*(D.dso-PRESETS.budget.dso)/30,2)} of cash.`);
+  if (D.dio > PRESETS.budget.dio) acts.push(`Trim inventory to ${PRESETS.budget.dio} days to release about ${fmtM(state.L.inv[11]*(D.dio-PRESETS.budget.dio)/D.dio,2)}.`);
+  if (br.margin < -100) acts.push(`Gross margin is costing ${fmtM(-br.margin)} of EBITDA. Review supplier pricing and channel mix.`);
+  if (isFinite(k.lev) && k.lev > 2.75 || !isFinite(k.lev)) acts.push(`Brief lenders early: leverage of ${isFinite(k.lev)?k.lev.toFixed(2)+'x':'n/m'} is ${k.lev>B.covenant||!isFinite(k.lev)?'over':'close to'} the ${B.covenant.toFixed(1)}x covenant.`);
+  if (!acts.length) acts.push('Plan is on track. Keep the monthly reforecast cadence and hold the current revolver policy.');
+  $('actions').innerHTML = acts.slice(0,5).map(a=>`<li><span>${a}</span></li>`).join('');
+  const now = new Date();
+  $('stamp').textContent = 'Rewritten ' + now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+const cap = s => s[0].toUpperCase()+s.slice(1);
+
+// ---------- chart helpers ----------
+function niceTicks(min, max, n=5){
+  const span = max-min || 1, step0 = span/n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1,2,2.5,5,10].map(x=>x*mag).find(x=>span/x<=n) || 10*mag;
+  const t = []; const top = Math.ceil(max/step - 1e-9)*step; for (let v=Math.floor(min/step)*step; v<=top+step*1e-9; v+=step) t.push(+v.toFixed(6));
+  return t;
+}
+const kfmt = v => Math.abs(v)>=1000 ? (v/1000).toFixed(Math.abs(v)%1000===0?0:1)+'M' : v.toFixed(0)+'k';
+function axisY(t, y, x0, x1){ return t.map(v => `<line x1="${x0}" x2="${x1}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${x0-6}" y="${y(v)+4}" text-anchor="end">${kfmt(v)}</text>`).join(''); }
+
+function renderBridge(){
+  const br = state.br, W=640, H=300, pl=52, pr=12, pt=24, pb=40;
+  const steps = [['Budget',br.start,'t'],['Volume',br.volume],['Price',br.price],['Margin',br.margin],['Opex',br.opex],['LE',br.end,'t']];
+  let run = 0; const bars = steps.map(([l,v,t]) => { if (t){ const b={l,v,a:0,b:v,t:1}; run=v; return b; } const b={l,v,a:run,b:run+v}; run+=v; return b; });
+  const lo = Math.min(0,...bars.map(b=>Math.min(b.a,b.b))), hi = Math.max(...bars.map(b=>Math.max(b.a,b.b)));
+  const t = niceTicks(lo, hi*1.1); const y0=t[0], y1=t[t.length-1];
+  const y = v => pt + (H-pt-pb)*(1-(v-y0)/(y1-y0));
+  const bw = (W-pl-pr)/bars.length;
+  let s = axisY(t,y,pl,W-pr);
+  bars.forEach((b,i) => {
+    const x = pl+i*bw+bw*0.18, w = bw*0.64, top = y(Math.max(b.a,b.b)), h = Math.max(1, Math.abs(y(b.a)-y(b.b)));
+    const fill = b.t ? (i===0?'var(--budget)':'var(--accent)') : (b.v>=0?'var(--pos)':'var(--neg)');
+    s += `<rect x="${x}" y="${top}" width="${w}" height="${h}" rx="3" fill="${fill}"/>`;
+    if (i<bars.length-1) { const yy = y(b.t?b.b:b.b); s += `<line x1="${x+w}" x2="${x+bw}" y1="${yy}" y2="${yy}" stroke="var(--muted)" stroke-dasharray="3 3"/>`; }
+    const lab = b.t ? fmtM(b.v) : (b.v>=0?'+':'−')+fmtK(Math.abs(b.v));
+    s += `<text class="lbl" x="${x+w/2}" y="${top-6}" text-anchor="middle">${lab}</text>`;
+    s += `<text x="${x+w/2}" y="${H-pb+18}" text-anchor="middle">${b.l}</text>`;
+  });
+  $('bridgeChart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="EBITDA bridge from budget to latest estimate">${s}</svg>`;
+}
+
+function renderMonthly(){
+  const L = state.L, W=640, H=300, pl=52, pr=12, pt=16, pb=32;
+  const all = [...BUD.ebitda, ...L.ebitda];
+  const t = niceTicks(Math.min(0,...all), Math.max(...all)*1.05); const y0=t[0], y1=t[t.length-1];
+  const y = v => pt + (H-pt-pb)*(1-(v-y0)/(y1-y0));
+  const bw = (W-pl-pr)/12; let s = axisY(t,y,pl,W-pr);
+  for (let m=0;m<12;m++){
+    const x = pl+m*bw;
+    const b = BUD.ebitda[m], l = L.ebitda[m];
+    s += `<rect x="${x+bw*0.14}" y="${Math.min(y(b),y(0))}" width="${bw*0.36}" height="${Math.max(1,Math.abs(y(b)-y(0)))}" rx="2" fill="var(--budget)"/>`;
+    s += `<rect x="${x+bw*0.5}" y="${Math.min(y(l),y(0))}" width="${bw*0.36}" height="${Math.max(1,Math.abs(y(l)-y(0)))}" rx="2" fill="var(--accent)"/>`;
+    s += `<text x="${x+bw/2}" y="${H-pb+18}" text-anchor="middle">${MONTHS[m]}</text>`;
+  }
+  $('monthlyChart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly EBITDA, budget versus latest estimate">${s}</svg>`;
+}
+
+function renderCash(){
+  const {L, mc} = state, wk = L.weeks, W=640, H=300, pl=52, pr=14, pt=14, pb=34;
+  const vals = [...wk.map(w=>w.close), ...mc.band.map(b=>b.p10), ...mc.band.map(b=>b.p90), B.minCash, B.targetCash, OPEN.cash];
+  const t = niceTicks(Math.min(...vals)*0.95, Math.max(...vals)*1.03); const y0=t[0], y1=t[t.length-1];
+  const y = v => pt + (H-pt-pb)*(1-(v-y0)/(y1-y0));
+  const x = i => pl + (W-pl-pr)*(i/13); // i=0 opening, 1..13 weeks
+  let s = axisY(t,y,pl,W-pr);
+  const up = [OPEN.cash, ...mc.band.map(b=>b.p90)], dn = [OPEN.cash, ...mc.band.map(b=>b.p10)];
+  s += `<path d="M${up.map((v,i)=>x(i)+','+y(v)).join(' L')} L${dn.map((v,i)=>x(i)+','+y(v)).reverse().join(' L')} Z" fill="var(--fan)"/>`;
+  s += `<line x1="${pl}" x2="${W-pr}" y1="${y(B.targetCash)}" y2="${y(B.targetCash)}" stroke="var(--budget)" stroke-dasharray="2 4" stroke-width="1.5"/>`;
+  s += `<line x1="${pl}" x2="${W-pr}" y1="${y(B.minCash)}" y2="${y(B.minCash)}" stroke="var(--neg)" stroke-dasharray="6 4" stroke-width="1.5"/>`;
+  s += `<text x="${W-pr}" y="${y(B.minCash)-5}" text-anchor="end" style="fill:var(--neg)">Minimum $6.0M</text>`;
+  const pts = [OPEN.cash, ...wk.map(w=>w.close)];
+  s += `<path d="M${pts.map((v,i)=>x(i)+','+y(v)).join(' L')}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  pts.forEach((v,i) => { const bad = v < B.minCash; s += `<circle cx="${x(i)}" cy="${y(v)}" r="${bad?5:3.5}" fill="${bad?'var(--neg)':'var(--surface)'}" stroke="${bad?'var(--neg)':'var(--accent)'}" stroke-width="2"/>`; });
+  ['Open',...wk.map(w=>w.label)].forEach((l,i) => { if (i%2===0 || i===13) s += `<text x="${x(i)}" y="${H-pb+18}" text-anchor="middle">${l}</text>`; });
+  [1,2].forEach(m => { const i = m===1?4:8; s += `<line x1="${x(i)}" x2="${x(i)}" y1="${pt}" y2="${H-pb}" stroke="var(--line)" stroke-dasharray="1 3"/><text x="${x(i)+4}" y="${pt+10}" text-anchor="start">${MONTHS[m]}</text>`; });
+  $('cashChart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="13-week cash forecast with minimum cash line">${s}</svg>`;
+}
+
+function renderHist(){
+  const mins = state.mc.mins, W=640, H=300, pl=40, pr=14, pt=14, pb=34;
+  const lo = Math.min(...mins, B.minCash-200), hi = Math.max(...mins, B.minCash+200);
+  const nb = 26, bwv = (hi-lo)/nb; const bins = new Array(nb).fill(0);
+  mins.forEach(v => bins[Math.min(nb-1, Math.floor((v-lo)/bwv))]++);
+  const ymax = Math.max(...bins); const t = niceTicks(0, ymax*1.1, 4); const y1 = t[t.length-1];
+  const y = v => pt + (H-pt-pb)*(1-v/y1); const x = v => pl + (W-pl-pr)*((v-lo)/(hi-lo));
+  let s = t.map(v => `<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end">${v}</text>`).join('');
+  bins.forEach((c,i) => { const a = lo+i*bwv; const mid=a+bwv/2; s += `<rect x="${x(a)+1}" y="${y(c)}" width="${Math.max(1,x(a+bwv)-x(a)-2)}" height="${y(0)-y(c)}" rx="1.5" fill="${mid<B.minCash?'var(--neg)':'var(--accent)'}" opacity="${mid<B.minCash?0.85:0.75}"/>`; });
+  s += `<line x1="${x(B.minCash)}" x2="${x(B.minCash)}" y1="${pt}" y2="${H-pb}" stroke="var(--neg)" stroke-width="1.5" stroke-dasharray="6 4"/>`;
+  s += `<text x="${x(B.minCash)+5}" y="${pt+10}" style="fill:var(--neg)">$6.0M</text>`;
+  niceTicks(lo, hi, 5).filter(v=>v>=lo&&v<=hi).forEach(v => s += `<text x="${x(v)}" y="${H-pb+18}" text-anchor="middle">${kfmt(v)}</text>`);
+  $('histChart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Distribution of lowest weekly cash across 1,000 simulations">${s}</svg>`;
+}
+
+function renderMC(){
+  const mc = state.mc;
+  const st = [
+    [pctS(mc.breach), 'runs dip under $6.0M minimum'],
+    [pctS(mc.capHit), 'runs fully draw the $15M revolver'],
+    [fmtM(mc.minP10,2), 'P10 weekly cash low (1-in-10 worse)'],
+    [`${fmtM(mc.ebitdaP10)}–${fmtM(mc.ebitdaP90)}`, 'FY EBITDA, P10 to P90']
+  ];
+  $('mcstats').innerHTML = st.map(([b,s])=>`<div><b>${b}</b><span>${s}</span></div>`).join('');
+}
+
+function renderWeeks(){
+  const wk = state.L.weeks;
+  const rows = [['Customer receipts','receipts'],['Supplier payments','supplier'],['Payroll','payroll'],['Other operating costs','other'],['Interest & loan principal','debt'],['Taxes','tax'],['Capex','capex'],['Revolver draw / (repay)','revolver'],['Dividends','div']];
+  let h = `<thead><tr><th>$000s</th>${wk.map(w=>`<th>${w.label}<br><span style="font-weight:400">${w.end}</span></th>`).join('')}<th class="fy">13 wks</th></tr></thead><tbody>`;
+  h += `<tr><td>Opening cash</td>${wk.map(w=>`<td>${fmtK(w.open)}</td>`).join('')}<td class="fy">${fmtK(wk[0].open)}</td></tr>`;
+  rows.forEach(([l,k]) => { h += `<tr><td>${l}</td>${wk.map(w=>`<td class="${w[k]<0?'neg':''}">${fmtK(w[k])}</td>`).join('')}<td class="fy ${sum(wk.map(w=>w[k]))<0?'neg':''}">${fmtK(sum(wk.map(w=>w[k])))}</td></tr>`; });
+  h += `<tr class="tot"><td>Net cash flow</td>${wk.map(w=>`<td class="${w.net<0?'neg':''}">${fmtK(w.net)}</td>`).join('')}<td class="fy">${fmtK(sum(wk.map(w=>w.net)))}</td></tr>`;
+  h += `<tr class="key"><td>Closing cash</td>${wk.map(w=>`<td class="${w.close<B.minCash?'under':''}">${fmtK(w.close)}</td>`).join('')}<td class="fy">${fmtK(wk[12].close)}</td></tr></tbody>`;
+  $('weekTable').innerHTML = h;
+}
+
+function renderFS(){
+  const L = state.L; if (!L) return;
+  const flow = k => sum(L[k]), endv = k => L[k][11];
+  const R = (label, k, o={}) => ({label, k, ...o});
+  const defs = {
+    pl: [R('Revenue','rev',{bud:1}), R('Cost of goods sold','cogs',{neg:1,bud:1}), R('Gross profit','gp',{cls:'tot',bud:1}),
+      R('Gross margin %','gm%',{pct:['gp','rev']}), R('Payroll','payroll',{neg:1,bud:1}), R('Other operating costs','otherOpex',{neg:1,bud:1}),
+      R('EBITDA','ebitda',{cls:'key',bud:1}), R('Depreciation','da',{neg:1,bud:1}), R('EBIT','ebit',{cls:'tot',bud:1}), R('Interest','interest',{neg:1,bud:1}),
+      R('Pre-tax income','ebt',{cls:'tot',bud:1}), R('Income tax','tax',{neg:1,bud:1}), R('Net income','ni',{cls:'key',bud:1})],
+    bs: [R('Cash','cash',{bal:1}), R('Accounts receivable','ar',{bal:1}), R('Inventory','inv',{bal:1}), R('PP&E, net','ppe',{bal:1}),
+      R('Total assets','TA',{cls:'tot',bal:1,calc:m=>L.cash[m]+L.ar[m]+L.inv[m]+L.ppe[m]}),
+      R('Accounts payable','ap',{bal:1}), R('Revolver','revolver',{bal:1}), R('Term loan','term',{bal:1}),
+      R('Total liabilities','TL',{cls:'tot',bal:1,calc:m=>L.ap[m]+L.revolver[m]+L.term[m]}),
+      R('Common stock','cs',{bal:1}), R('Retained earnings','re',{bal:1}),
+      R('Total equity','TE',{cls:'tot',bal:1,calc:m=>L.cs[m]+L.re[m]}),
+      R('Total liabilities & equity','TLE',{cls:'key',bal:1,calc:m=>L.ap[m]+L.revolver[m]+L.term[m]+L.cs[m]+L.re[m]}),
+      R('Check: assets − (liabilities + equity)','CHK',{cls:'chk',bal:1,calc:m=>L.cash[m]+L.ar[m]+L.inv[m]+L.ppe[m]-(L.ap[m]+L.revolver[m]+L.term[m]+L.cs[m]+L.re[m])})],
+    cf: [R('Net income','ni'), R('Depreciation','da'), R('(Increase) in receivables','dAR',{flip:1}), R('(Increase) in inventory','dInv',{flip:1}), R('Increase in payables','dAP'),
+      R('Cash from operations','cfo',{cls:'tot'}), R('Capital expenditure','capex',{flip:1}), R('Cash from investing','cfi',{cls:'tot'}),
+      R('Term loan repayment','termPay',{flip:1}), R('Revolver draw / (repay)','revFlow'), R('Dividends','div',{flip:1}), R('Cash from financing','cff',{cls:'tot'}),
+      R('Net change in cash','net',{cls:'key'}), R('Opening cash','cashOpen',{open:1}), R('Closing cash','cashClose',{cls:'key',bal:1})]
+  };
+  const rows = defs[tab];
+  const showBud = tab==='pl';
+  const val = (r,m) => r.calc ? r.calc(m) : r.pct ? L[r.pct[0]][m]/L[r.pct[1]][m] : (r.neg||r.flip ? -L[r.k][m] : L[r.k][m]);
+  let h = `<thead><tr><th>${tab==='bs'?'Month-end':'$000s'}</th>${tab==='bs'?'<th>Open</th>':''}${MONTHS.map(m=>`<th>${m}</th>`).join('')}<th class="fy">FY27 LE</th>${showBud?'<th>Budget</th><th>Var</th>':''}</tr></thead><tbody>`;
+  rows.forEach(r => {
+    const cells = MONTHS.map((_,m) => val(r,m));
+    let fy;
+    if (r.pct) fy = sum(L[r.pct[0]])/sum(L[r.pct[1]]);
+    else if (r.bal) fy = cells[11];
+    else if (r.open) fy = cells[0];
+    else fy = sum(cells);
+    const f = v => r.pct ? (v*100).toFixed(1)+'%' : r.cls==='chk' ? (Math.abs(v)<0.5?'0':fmtK(v)) : fmtK(v);
+    let openCell = '';
+    if (tab==='bs'){ const o = {cash:OPEN.cash,ar:OPEN.ar,inv:OPEN.inv,ppe:OPEN.ppe,ap:OPEN.ap,revolver:OPEN.rev,term:OPEN.term,cs:OPEN.cs,re:OPEN.re};
+      o.TA=o.cash+o.ar+o.inv+o.ppe; o.TL=o.ap+o.revolver+o.term; o.TE=o.cs+o.re; o.TLE=o.TL+o.TE; o.CHK=o.TA-o.TLE; openCell = `<td>${f(o[r.k])}</td>`; }
+    h += `<tr class="${r.cls||(r.pct?'pct':'')}"><td>${r.label}</td>${openCell}${cells.map((v,m)=>{
+      const typed = state.tampered && tab==='bs' && r.k==='ar' && m===5; const bad = r.cls==='chk' && Math.abs(v)>=0.5;
+      return `<td class="${typed?'typed':bad?'under':(v<0&&!r.pct?'neg':'')}" ${typed?'title="Hard-coded value"':''}>${f(v)}</td>`; }).join('')}<td class="fy">${f(fy)}</td>`;
+    if (showBud){
+      let b; if (r.pct) b = sum(BUD[r.pct[0]])/sum(BUD[r.pct[1]]); else b = sum(BUD[r.k])*(r.neg?-1:1);
+      const v = fy-b; h += `<td>${f(b)}</td><td class="${(r.pct?v:v)<0?'neg':''}">${r.pct?sgn(v*100,1)+' pts':(v>=0?'+':'')+fmtK(v)}</td>`;
+    }
+    h += '</tr>';
+  });
+  $('fsTable').innerHTML = h + '</tbody>';
+}
+
+syncSliders(); compute();
+</script></body></html>
